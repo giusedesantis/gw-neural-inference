@@ -1,4 +1,6 @@
 from pycbc.waveform import get_fd_waveform
+from pycbc.psd import aLIGOZeroDetHighPower
+from pycbc.noise import noise_from_psd
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -21,6 +23,7 @@ duration  = 4.0  # Duration of the waveform in seconds
 delta_f = 1 / duration  # Frequency resolution for the waveform
 n_samples  = 4096  # Number of samples for the waveform
 sample_rate = n_samples / duration  # Sample rate for the waveform
+delta_t = 1 / sample_rate # Time resolution for the waveform
 flen = n_samples // 2 + 1  # Length of the frequency domain waveform
 
 
@@ -39,14 +42,23 @@ hp, hc = get_fd_waveform(
 hp.resize(flen) # Resize the waveform to the desired length
 hp_time = hp.to_timeseries() # Convert the frequency domain waveform to time domain (inverse Fourier transform)
 
-# Plotting
+# Generate PSD
+psd = aLIGOZeroDetHighPower(flen, delta_f, f_lower)
+
+# Generate noise from the PSD
+noise = noise_from_psd(n_samples, delta_t, psd, seed=42)
+
+hp_time.start_time = 0
+noise.start_time = 0
+# Simulated detector data (signal + noise)
+d_t = hp_time + noise
+
+#plotting the simulated detector data
 plt.figure(figsize=(10, 6))
-time = np.arange(len(hp_time)) * (1/sample_rate)  # Time array for plotting
-plt.plot(time, hp_time, label='Plus polarization')
-#plt.plot(time, hc, label='Cross polarization')
-#plt.plot(hp.sample_frequencies, np.abs(hp), label='Plus polarization')
+plt.plot(noise.sample_times, noise, color='green', label='Simulated noise', alpha=0.8)
+plt.plot(hp_time.sample_times, hp_time, color='red', label='Simulated waveform (signal)', alpha=0.8)
+plt.plot(d_t.sample_times, d_t, color='blue', label='Simulated detector data (signal + noise)', alpha=0.55)
 plt.xlabel('Time (s)')
 plt.ylabel('Strain')
 plt.legend()
-plt.title('Gravitational Waveform')
 plt.show()
