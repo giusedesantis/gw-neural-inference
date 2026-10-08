@@ -53,11 +53,34 @@ noise.start_time = 0
 # Simulated detector data (signal + noise)
 d_t = hp_time + noise
 
+# Converting simulated detector data to frequency domain
+d_f = d_t.to_frequencyseries()
+
+# Creating an empty frequency-domain array for the whitened data
+d_whiten_f = d_f.copy()
+d_whiten_f[:] = 0
+
+# Identifying valid frequency bins
+kmin = int(f_lower / delta_f)
+valid_bins = (
+    (np.arange(len(psd)) >= kmin) &
+    (psd.numpy() > 0) &
+    (np.isfinite(psd.numpy()))
+)
+
+# Whitening only the valid frequency bins
+d_whiten_f.data[valid_bins] = d_f.data[valid_bins] / np.sqrt(psd.data[valid_bins]) 
+
+# Converting whitened data back to time domain
+d_whiten_t = d_whiten_f.to_timeseries()
+d_whiten_t.start_time = 0
+
 #plotting the simulated detector data
 plt.figure(figsize=(10, 6))
-plt.plot(noise.sample_times, noise, color='green', label='Simulated noise', alpha=0.8)
-plt.plot(hp_time.sample_times, hp_time, color='red', label='Simulated waveform (signal)', alpha=0.8)
-plt.plot(d_t.sample_times, d_t, color='blue', label='Simulated detector data (signal + noise)', alpha=0.55)
+# plt.plot(noise.sample_times, noise, color='green', label='Simulated noise', alpha=0.8)
+# plt.plot(hp_time.sample_times, hp_time, color='red', label='Simulated waveform (signal)', alpha=0.8)
+#plt.plot(d_t.sample_times, d_t, color='blue', label='Simulated detector data (signal + noise)', alpha=0.9, linewidth=0.7)
+plt.plot(d_whiten_t.sample_times, d_whiten_t, color='orange', label='Whitened detector data',alpha=0.6, linewidth=0.8)
 plt.xlabel('Time (s)')
 plt.ylabel('Strain')
 plt.legend()
