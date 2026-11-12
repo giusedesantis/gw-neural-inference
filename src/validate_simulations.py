@@ -275,15 +275,32 @@ def validate_truncation(cases, positioned_waveforms, snr_rows, output_dir):
     rows = []
     target_index = int(round(MERGER_TIME / DELTA_T))
 
-    for (chirp_mass, q, distance), positioned, snr_row in zip(
-        cases, positioned_waveforms, snr_rows
-    ):
+    for (chirp_mass, q, distance), positioned, snr_row in zip(cases, positioned_waveforms, snr_rows):
         raw_hp, raw_hc = raw_waveform(chirp_mass, q, distance)
         peak_index = int(np.argmax(np.hypot(raw_hp.numpy(), raw_hc.numpy())))
         discarded_before = max(0, peak_index - target_index)
         discarded_after = max(
             0, len(raw_hp) - peak_index - (N_SAMPLES - target_index)
         )
+        #----------------TEST--------------#
+        # Calculate the original waveform amplitude
+        amplitude = np.hypot(raw_hp.numpy(), raw_hc.numpy())
+
+        # Determine the retained interval
+        start = discarded_before
+        end = len(raw_hp) - discarded_after
+
+        # Calculate the squared amplitude discarded
+        discarded_squared = (np.sum(amplitude[:start]**2) + np.sum(amplitude[end:]**2))
+
+        # Calculate total squared amplitude
+        total_squared = np.sum(amplitude**2)
+
+        # Fraction discarded
+        fraction = discarded_squared / total_squared if total_squared > 0 else np.nan
+        print(f"Discarded squared strain: {100 * fraction:.6f}%")
+        #----------------TEST--------------#
+
         raw_snr = optimal_snr(raw_hp)
         kept_snr = snr_row["optimal_snr_4s"]
         retained = ((kept_snr / raw_snr)**2 if raw_snr > 0
@@ -295,6 +312,7 @@ def validate_truncation(cases, positioned_waveforms, snr_rows, output_dir):
             "raw_duration_s": len(raw_hp) * DELTA_T,
             "discarded_before_peak_s": discarded_before * DELTA_T,
             "discarded_after_peak_s": discarded_after * DELTA_T,
+            "discarded_strain_squared_pct": 100 * fraction,  #test line
         })
         rows.append(row)
         print(f"Case {row['case']:02d}: SNR_4s={kept_snr:.2f}, "
